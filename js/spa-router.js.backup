@@ -1,0 +1,289 @@
+﻿/* =========================================================
+   FIBERTECH — SPA ROUTER (Vanilla JS)
+   ---------------------------------------------------------
+   Converte a navegação multi-página existente num
+   comportamento de SPA (Single Page Application), SEM
+   alterar o HTML, CSS ou JS de cada página.
+
+   Como funciona:
+   - Cada página (index.html, /paginas/*.html) continua a ser
+     um documento completo e independente — funciona na
+     perfeição mesmo sem este script (acesso directo, SEO,
+     partilha de links, refresh, no-JS).
+   - Quando este script está activo, os cliques em links
+     internos são interceptados: o router faz fetch() da
+     página de destino, troca apenas o <style> e o <body>,
+     actualiza <title>/meta e a URL (history.pushState), e
+     volta a executar o <script> dessa página — para que todo
+     o JS original (menu, slider, reveal, filtros, formulário,
+     ano do rodapé, etc.) continue a funcionar exactamente
+     como antes.
+   - Botões Back/Forward funcionam via popstate.
+   ========================================================= */
+(function () {
+  "use strict";
+
+  /* =========================================================
+     01. ROTAS CONHECIDAS
+     — apenas os caminhos abaixo são tratados pelo router.
+       Qualquer outro link (externo, mailto:, tel:, download,
+       #ancora) segue o comportamento normal do browser.
+     ========================================================= */
+  var ROUTES = [
+    "/index.html",
+    "/paginas/sobre-nos.html",
+    "/paginas/servicos.html",
+    "/paginas/solucoes.html",
+    "/paginas/projectos.html",
+    "/paginas/tecnologias.html",
+    "/paginas/insights.html",
+    "/paginas/contactos.html",
+    "/paginas/privacy.html",
+    "/paginas/terms.html"
+  ];
+
+  function normalizePath(pathname) {
+    if (pathname === "/" || pathname === "") return "/index.html";
+    return pathname;
+  }
+
+  function isKnownRoute(pathname) {
+    return ROUTES.indexOf(normalizePath(pathname)) !== -1;
+  }
+
+  /* =========================================================
+     02. ESTADO INTERNO
+     ========================================================= */
+  var isNavigating = false;
+  var cache = Object.create(null); // path -> texto HTML (evita re-fetch em back/forward)
+
+  /* Caminho actualmente renderizado no DOM. Não pode ser lido a
+     partir de window.location.pathname no momento do popstate,
+     porque o browser já actualizou a URL para o destino antes
+     de disparar o evento — comparar com location.pathname nessa
+     altura daria sempre "igual" e o conteúdo nunca seria trocado. */
+  var currentRenderedPath = normalizePath(window.location.pathname);
+
+  /* =========================================================
+     03. UTILITÁRIOS
+     ========================================================= */
+
+  /* Remove o preloader do HTML recebido — o preloader é um
+     efeito exclusivo do primeiro carregamento "a frio" da Home
+     (feito pelo browser, fora deste script). Ao navegar via
+     SPA para a Home, não faz sentido voltar a mostrá-lo. */
+  function stripPreloader(bodyEl) {
+    var preloader = bodyEl.querySelector("#preloader");
+    if (preloader) preloader.parentNode.removeChild(preloader);
+  }
+
+  /* Actualiza <title> e as meta tags relevantes de SEO/OG a
+     partir do documento recebido, para que cada rota continue
+     a reportar o título/descrição correctos mesmo sem reload. */
+  function updateHead(newDoc) {
+    if (newDoc.title) document.title = newDoc.title;
+
+    var metaSelectors = [
+      'meta[name="description"]',
+      'meta[name="keywords"]',
+      'link[rel="canonical"]',
+      'meta[property="og:title"]',
+      'meta[property="og:description"]',
+      'meta[property="og:url"]',
+      'meta[property="og:image"]',
+      'meta[name="twitter:title"]',
+      'meta[name="twitter:description"]',
+      'meta[name="twitter:image"]'
+    ];
+
+    metaSelectors.forEach(function (sel) {
+      var fresh = newDoc.querySelector(sel);
+      var current = document.querySelector(sel);
+      if (!fresh || !current) return;
+      if (current.tagName === "LINK") {
+        current.setAttribute("href", fresh.getAttribute("href") || "");
+      } else {
+        current.setAttribute("content", fresh.getAttribute("content") || "");
+      }
+    });
+  }
+
+  /* Troca o <style> global pelo <style> da nova página. Cada
+     página tem a sua folha de estilos completa e autónoma, tal
+     como no projecto original — trocar o bloco inteiro (em vez
+     de o combinar com o anterior) evita qualquer conflito entre
+     regras específicas de páginas diferentes. */
+  function swapStyle(newDoc) {
+    var freshStyle = newDoc.querySelector("style");
+    var currentStyle = document.querySelector("style");
+    if (freshStyle && currentStyle) {
+      currentStyle.textContent = freshStyle.textContent;
+    }
+  }
+
+  /* Troca o conteúdo do <body> e volta a executar o <script>
+     original dessa página. O script é envolvido numa IIFE
+     (função autoexecutável) apenas para lhe dar um âmbito
+     próprio a cada execução — assim as variáveis (const/let)
+     que o script já declara (header, menu, burger, etc.) podem
+     voltar a ser declaradas em cada navegação sem gerar erro
+     de "identificador já declarado". O código em si não é
+     alterado, apenas re-executado dentro dessa função. */
+  function swapBody(newDoc) {
+    var newBody = newDoc.body.cloneNode(true);
+
+    stripPreloader(newBody);
+
+    var scriptEl = newBody.querySelector("script");
+    var scriptText = "";
+    if (scriptEl) {
+      scriptText = scriptEl.textContent;
+      scriptEl.parentNode.removeChild(scriptEl);
+    }
+
+    document.body.innerHTML = newBody.innerHTML;
+
+    if (scriptText) {
+      var injected = document.createElement("script");
+      injected.textContent = "(function(){\n" + scriptText + "\n})();";
+      document.body.appendChild(injected);
+      injected.parentNode.removeChild(injected);
+    }
+  }
+
+  function scrollToTarget(hash) {
+    if (hash) {
+      var id = decodeURIComponent(hash.replace("#", ""));
+      var el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ block: "start" });
+        return;
+      }
+    }
+    window.scrollTo(0, 0);
+  }
+
+  /* =========================================================
+     04. CARREGAMENTO DE PÁGINA (fetch + cache)
+     ========================================================= */
+  function fetchPage(path) {
+    if (cache[path]) return Promise.resolve(cache[path]);
+    return fetch(path, { credentials: "same-origin" }).then(function (res) {
+      if (!res.ok) throw new Error("Falha ao carregar " + path);
+      return res.text();
+    }).then(function (html) {
+      cache[path] = html;
+      return html;
+    });
+  }
+
+  /* =========================================================
+     05. NAVEGAÇÃO
+     ========================================================= */
+  function renderPath(path, hash, pushToHistory, fullUrl) {
+    if (isNavigating) return;
+    isNavigating = true;
+
+    fetchPage(path).then(function (html) {
+      var parser = new DOMParser();
+      var newDoc = parser.parseFromString(html, "text/html");
+
+      updateHead(newDoc);
+      swapStyle(newDoc);
+      swapBody(newDoc);
+
+      if (pushToHistory) {
+        history.pushState({ spa: true, path: path }, "", fullUrl);
+      }
+
+      currentRenderedPath = path;
+      scrollToTarget(hash);
+      isNavigating = false;
+    }).catch(function () {
+      /* Falha de rede/fetch (ex.: aberto via file://) — recorre
+         à navegação normal do browser em vez de deixar o link
+         sem efeito. */
+      isNavigating = false;
+      window.location.href = fullUrl;
+    });
+  }
+
+  function goTo(url, pushToHistory) {
+    var target;
+    try {
+      target = new URL(url, window.location.href);
+    } catch (e) {
+      return;
+    }
+
+    if (target.origin !== window.location.origin) {
+      window.location.href = url;
+      return;
+    }
+
+    var path = normalizePath(target.pathname);
+    if (!isKnownRoute(path)) {
+      window.location.href = url;
+      return;
+    }
+
+    /* Mesmo documento já renderizado: apenas ajusta a âncora/URL,
+       sem novo fetch. Usa currentRenderedPath (e não
+       window.location.pathname) porque, num popstate, a URL do
+       browser já foi alterada para o destino antes deste código
+       correr. */
+    if (path === currentRenderedPath) {
+      if (pushToHistory) {
+        history.pushState({ spa: true, path: path }, "", target.href);
+      }
+      scrollToTarget(target.hash);
+      return;
+    }
+
+    renderPath(path, target.hash, pushToHistory, target.href);
+  }
+
+  /* =========================================================
+     06. INTERCEPTAÇÃO DE LINKS INTERNOS
+     ========================================================= */
+  document.addEventListener("click", function (e) {
+    if (e.defaultPrevented) return;
+    if (e.button !== 0) return; // apenas clique principal
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+    var link = e.target.closest ? e.target.closest("a[href]") : null;
+    if (!link) return;
+
+    var href = link.getAttribute("href");
+    if (!href) return;
+    if (href.charAt(0) === "#") return; // âncora pura na própria página
+    if (/^(mailto:|tel:|javascript:)/i.test(href)) return;
+    if (link.target && link.target !== "" && link.target !== "_self") return;
+    if (link.hasAttribute("download")) return;
+
+    var url;
+    try {
+      url = new URL(href, window.location.href);
+    } catch (err) {
+      return;
+    }
+    if (url.origin !== window.location.origin) return;
+    if (!isKnownRoute(url.pathname)) return;
+
+    e.preventDefault();
+    goTo(url.href, true);
+  });
+
+  /* =========================================================
+     07. BACK / FORWARD
+     ========================================================= */
+  window.addEventListener("popstate", function () {
+    goTo(window.location.href, false);
+  });
+
+  /* =========================================================
+     08. ARRANQUE
+     ========================================================= */
+  history.replaceState({ spa: true, path: normalizePath(window.location.pathname) }, "", window.location.href);
+})();
+
