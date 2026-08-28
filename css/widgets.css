@@ -1,0 +1,122 @@
+/* =========================================================
+   WIDGETS.CSS
+   Fixed bottom-right widget stack (language switcher + WhatsApp)
+   and global loading overlay. Shared across every page.
+   ========================================================= */
+
+/* -------- Fixed widget stack -------- */
+.fw-widget-stack{
+  position:fixed;
+  right:max(16px, env(safe-area-inset-right));
+  bottom:max(16px, env(safe-area-inset-bottom));
+  z-index:9999;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:12px;
+  pointer-events:none; /* re-enabled on children */
+}
+.fw-widget-stack > *{pointer-events:auto}
+
+.overlay.is-open ~ .fw-widget-stack{
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .2s,visibility .2s;
+}
+
+/* -------- Language switcher -------- */
+.fw-lang{position:relative}
+
+.fw-lang-btn{
+  min-width:52px;height:52px;padding:0 12px;border-radius:26px;
+  background:#ffffff;color:#1b2130;
+  border:1px solid rgba(8,48,193,.14);
+  display:flex;flex-direction:row;align-items:center;justify-content:center;
+  gap:6px;
+  box-shadow:0 8px 22px rgba(8,20,60,.16),0 2px 6px rgba(0,0,0,.08);
+  cursor:pointer;
+  transition:transform .22s cubic-bezier(.22,.61,.36,1),box-shadow .22s;
+}
+.fw-lang-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(8,20,60,.22),0 4px 10px rgba(0,0,0,.1)}
+.fw-lang-btn:focus-visible{outline:2px solid #0830c1;outline-offset:2px}
+.fw-lang-globe{font-size:19px;line-height:1;font-style:normal}
+.fw-lang-code{font-size:13px;font-weight:700;letter-spacing:.03em;line-height:1;color:#1b2130}
+
+.fw-lang-menu{
+  position:absolute;
+  bottom:calc(100% + 10px);
+  right:0;
+  min-width:176px;
+  background:#ffffff;
+  border-radius:14px;
+  border:1px solid rgba(8,48,193,.12);
+  box-shadow:0 20px 44px rgba(8,20,60,.22),0 4px 14px rgba(0,0,0,.1);
+  padding:6px;
+  list-style:none;
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  animation:fw-menu-in .16s cubic-bezier(.22,.61,.36,1);
+  transform-origin:bottom right;
+}
+.fw-lang-menu[hidden]{display:none}
+@keyframes fw-menu-in{
+  from{opacity:0;transform:translateY(6px) scale(.97)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+
+.fw-lang-option{
+  width:100%;
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;
+  border-radius:9px;
+  background:none;border:0;
+  font-size:.86rem;font-weight:500;color:#1b2130;
+  text-align:left;
+  cursor:pointer;
+  transition:background .15s;
+}
+.fw-lang-option:hover{background:#f4f6fb}
+.fw-lang-option.is-active{background:rgba(8,48,193,.08);color:#0830c1;font-weight:700}
+.fw-lang-option-flag{font-size:17px;line-height:1;flex-shrink:0}
+
+/* -------- WhatsApp button -------- */
+.fw-whatsapp{
+  width:56px;height:56px;border-radius:50%;
+  background:#25D366;color:#fff;
+  display:grid;place-items:center;
+  box-shadow:0 8px 24px rgba(37,211,102,.4),0 2px 8px rgba(0,0,0,.15);
+  transition:transform .25s cubic-bezier(.22,.61,.36,1),box-shadow .25s;
+}
+.fw-whatsapp:hover{
+  transform:translateY(-3px) scale(1.05);
+  box-shadow:0 12px 30px rgba(37,211,102,.5),0 4px 10px rgba(0,0,0,.18);
+}
+.fw-whatsapp svg{width:28px;height:28px;display:block}
+
+@media (max-width:760px){
+  .fw-widget-stack{right:max(14px, env(safe-area-inset-right));bottom:max(14px, env(safe-area-inset-bottom));gap:10px}
+  .fw-lang-btn{height:46px;min-width:46px;padding:0 10px}
+  .fw-lang-globe{font-size:17px}
+  .fw-lang-code{font-size:12px}
+  .fw-whatsapp{width:50px;height:50px}
+  .fw-whatsapp svg{width:25px;height:25px}
+  .fw-lang-menu{min-width:164px}
+}
+
+/* -------- Global loading overlay -------- */
+#preloader,.fw-route-loader{
+  position:fixed;inset:0;z-index:100000;
+  background:#ffffff;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .25s ease;
+}
+.fw-spinner{
+  width:36px;height:36px;
+  border-radius:50%;
+  border:3px solid rgba(8,48,193,.15);
+  border-top-color:#0830c1;
+  animation:fw-spin .7s linear infinite;
+}
+@keyframes fw-spin{to{transform:rotate(360deg)}}
+#preloader.is-hidden{opacity:0;pointer-events:none}
