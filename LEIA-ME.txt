@@ -1,0 +1,250 @@
+==================================================================
+ FIBERTECH — LEIA-ME
+ Guia para editar, manter e ampliar este site
+==================================================================
+
+Direção artística do site: Dave Nanza — +258846406972 / davidnandza1@gmail.com
+
+
+------------------------------------------------------------------
+1. O QUE É ESTE PROJETO
+------------------------------------------------------------------
+Site institucional da FiberTech (Moçambique), feito em HTML, CSS e
+JavaScript puro (sem frameworks). Funciona como uma SPA (Single Page
+Application): ao clicar num link do menu, o conteúdo troca sem
+recarregar a página inteira, dando uma navegação mais fluida.
+
+Suporta 3 idiomas (Português, Inglês, Espanhol), escolhidos
+automaticamente (localização já autorizada > região por IP > idioma
+do browser > Português como não é suportado, cai para Inglês), ou
+manualmente pelo utilizador (fica guardado no navegador).
+
+Ambiente de testes atual: fibertech.onrender.com
+Domínio definitivo (ainda não migrado): fibertech.co.mz
+
+
+------------------------------------------------------------------
+2. AS IMAGENS AINDA SÃO PROVISÓRIAS — ATENÇÃO
+------------------------------------------------------------------
+Várias imagens do site (sobretudo nos slideshows "Sobre Nós"/Home e
+em alguns cards de serviços) são fotos de banco de imagens (Unsplash),
+usadas apenas como placeholder visual. Antes de o site ir para
+produção definitiva, estas devem ser substituídas por fotografias
+reais da FiberTech (equipa, instalações, projetos reais).
+
+Onde procurar:
+  - index.html          -> Hero da Home e cards de serviços
+  - pages/sobre-nos.html -> slideshow "Quem somos"
+  - pages/servicos.html, pages/tecnologias.html, pages/solucoes.html
+    -> cards de categorias
+
+As imagens dos 21 projetos em pages/projectos.html (fotos de capa e
+galeria) já são reais e não devem ser mexidas sem necessidade.
+
+
+------------------------------------------------------------------
+3. ESTRUTURA GERAL DO PROJETO
+------------------------------------------------------------------
+index.html               Página inicial (Home)
+pages/                   Todas as outras páginas
+  sobre-nos.html, servicos.html, solucoes.html, projectos.html,
+  tecnologias.html, insights.html, contactos.html,
+  privacy.html, terms.html
+css/                     Um ficheiro CSS por página (mesmo nome),
+                         mais widgets.css (partilhado)
+js/                      Um ficheiro JS por página (mesmo nome),
+                         mais os módulos partilhados (ver secção 5)
+imagens/
+  backgrounds/           Fotos de fundo (Hero, cards, banners)
+  logo/                  Logótipo e imagem de partilha (meta.png)
+  project/proj-01 .. 21/ Fotos de cada projeto (capa + galeria)
+translations/            pt.json, en.json, es.json, manifest.json
+robots.txt, sitemap.xml  Ficheiros de SEO técnico
+
+Cada página HTML é independente (não há um "template" central):
+o cabeçalho, o menu e o rodapé estão duplicados em cada ficheiro
+.html. Isto significa que qualquer alteração ao cabeçalho, menu ou
+rodapé (ex.: adicionar um link, trocar um contacto) tem de ser
+repetida em TODAS as páginas — index.html + tudo dentro de pages/.
+
+
+------------------------------------------------------------------
+4. COMO FUNCIONA O SPA-ROUTER.JS
+------------------------------------------------------------------
+O ficheiro js/spa-router.js é o "cérebro" da navegação. Função:
+
+  - Intercepta cliques em links internos (para /index.html ou
+    /pages/*.html) e, em vez de recarregar a página, vai buscar o
+    HTML novo por fetch(), troca o <body> e corre o script da
+    página nova — dando a sensação de app, não de site tradicional.
+  - Mantém uma cache (em memória) do HTML e do JS de cada página já
+    visitada, para a navegação de volta ser instantânea.
+  - Repõe a posição do scroll (topo ou o alvo de um #hash) antes de
+    correr o script da nova página.
+  - Elementos marcados com o atributo [data-persist] (o widget fixo
+    de idioma/WhatsApp, o ecrã de loading) sobrevivem à troca do
+    <body> em vez de serem destruídos e recriados.
+  - Dispara o evento "app:navigated" depois de cada troca de página,
+    que é usado por outros módulos (i18n.js, reveal.js) para se
+    reaplicarem ao novo conteúdo.
+
+COMO ADICIONAR UMA NOVA PÁGINA:
+  1. Criar o ficheiro novo em pages/nova-pagina.html, copiando a
+     estrutura de uma página parecida (cabeçalho + menu + rodapé
+     iguais às outras, ver secção 3).
+  2. Criar pages/nova-pagina.js (mesmo se vazio ou só com o
+     comentário-padrão que as outras páginas simples já têm) e
+     ligá-lo no <script src="/js/nova-pagina.js" ...> do HTML.
+  3. Criar css/nova-pagina.css e ligá-lo no <link> do HTML.
+  4. Abrir js/spa-router.js e acrescentar o caminho no array
+     ROUTES — o próprio código já indica exatamente onde
+     ("<- nova página: copiar e colar aqui").
+  5. Acrescentar o link de menu (<nav>) para a nova página em TODAS
+     as páginas existentes (ver aviso na secção 3).
+  6. Se a página precisar de texto traduzido, seguir a secção 6
+     abaixo (translations/*.json).
+
+
+------------------------------------------------------------------
+5. FICHEIROS JAVASCRIPT — O QUE FAZ CADA UM
+------------------------------------------------------------------
+Partilhados por todas as páginas (não duplicar nem apagar):
+  spa-router.js   Navegação SPA (ver secção 4)
+  site-nav.js     Cabeçalho, menu móvel, scroll do header, ano do
+                  rodapé — igual em todas as páginas
+  i18n.js         Sistema de idiomas (ver secção 6)
+  reveal.js       Animações de entrada ao fazer scroll (.reveal)
+  widgets.js      Botões fixos (idioma + WhatsApp) no canto inferior
+  loader.js       Ecrã de loading inicial + pré-carregamento de
+                  páginas em segundo plano
+
+Específicos de cada página (mesmo nome do .html):
+  index.js        Carrossel do Hero da Home
+  projectos.js    Filtros, modais de detalhe e galerias dos projetos
+  sobre-nos.js    Slideshow "Quem somos"
+  contactos.js    Envio do formulário de contacto (ver secção 7)
+  insights.js     Filtros do blog (atualmente sem efeito — ver
+                  secção 8, blog em construção)
+  servicos.js, tecnologias.js, solucoes.js, privacy.js, terms.js
+                  Sem lógica própria — só o comentário-padrão
+
+
+------------------------------------------------------------------
+6. TRADUÇÕES (translations/pt.json, en.json, es.json)
+------------------------------------------------------------------
+Todo o texto do site vem destes 3 ficheiros — não escrever texto
+novo directamente em HTML sem também o pôr aqui, senão o site mostra
+sempre Português mesmo com Inglês/Espanhol escolhido.
+
+Formato de cada chave: "pagina.tipo.numero", ex: "index.h3.36".
+Os 3 ficheiros têm exatamente as mesmas chaves (só o texto muda).
+
+Para adicionar um texto novo:
+  1. Escolher uma chave nova e única, ex.: "servicos.p.99".
+  2. Acrescentá-la aos 3 ficheiros (pt.json, en.json, es.json), com
+     a tradução correspondente em cada um.
+  3. No HTML, usar data-i18n="servicos.p.99" no elemento (o texto
+     em português escrito directamente no HTML serve de reserva,
+     caso as traduções falhem a carregar).
+  4. Para atributos (placeholder, aria-label, content de meta tags),
+     usar data-i18n-attr="atributo:chave", ex.:
+     data-i18n-attr="content:servicos.meta-description.69"
+
+IMPORTANTE: nunca pôr um elemento com data-i18n a envolver um link
+(<a>) ou outro elemento com filhos — a tradução substitui todo o
+texto interno e apagaria o link. Separar em vários elementos, cada
+um com a sua própria chave (ver o checkbox de consentimento em
+pages/contactos.html como exemplo).
+
+
+------------------------------------------------------------------
+7. FORMULÁRIO DE CONTACTO (js/contactos.js)
+------------------------------------------------------------------
+O formulário envia as mensagens através do serviço externo Web3Forms
+(gratuito, feito para sites estáticos, aceita anexos).
+
+CONFIGURAÇÃO NECESSÁRIA (ainda por fazer):
+  Abrir js/contactos.js e substituir esta linha:
+      var WEB3FORMS_ACCESS_KEY = "SUBSTITUIR_PELA_ACCESS_KEY_WEB3FORMS";
+  pela Access Key gratuita obtida em https://web3forms.com, usando o
+  email fibertechnology@yandex.com para criar a conta. Sem isto, o
+  formulário mostra sempre erro ao tentar enviar.
+
+Para trocar de fornecedor de formulário no futuro, basta alterar as
+constantes WEB3FORMS_ACCESS_KEY/WEB3FORMS_ENDPOINT no topo do
+ficheiro (e o nome dos campos, se o novo serviço exigir outros).
+
+
+------------------------------------------------------------------
+8. OUTRAS CONFIGURAÇÕES E LIGAÇÕES EXTERNAS
+------------------------------------------------------------------
+- Google Maps (pages/contactos.html): mapa embutido por coordenadas
+  fixas + link para a morada. Se a empresa mudar de morada, atualizar
+  o "src" do <iframe> e o link "Ver no Google Maps" nesse ficheiro.
+- WhatsApp (js/widgets.js e pages/contactos.html): número
+  +258866539417, com mensagem pré-preenchida. Para mudar o número ou
+  a mensagem, procurar "wa.me" nesses dois ficheiros.
+- Portfólio (botão "Baixar portfólio", em index.html e
+  pages/projectos.html, duas vezes): aponta para um ficheiro no
+  Google Drive. Para trocar o ficheiro, substituir o link
+  "drive.google.com" nesses 3 pontos.
+- Redes sociais: Facebook e Instagram já têm páginas reais; o
+  LinkedIn aponta para a homepage da rede porque a FiberTech ainda
+  não tem página própria — trocar o href assim que existir.
+- SEO: robots.txt e sitemap.xml na raiz apontam para
+  fibertech.onrender.com. Ao migrar para fibertech.co.mz, atualizar
+  o domínio nesses 2 ficheiros e nas tags canonical/og:url de cada
+  página HTML.
+- Blog (pages/insights.html): está temporariamente "em construção".
+  Os 8 artigos originais continuam completos no código, dentro de um
+  comentário HTML perto do início da secção de artigos — basta
+  remover esse comentário (e a mensagem "em construção" acima dele)
+  para reactivar o blog.
+
+
+------------------------------------------------------------------
+9. COMO ADICIONAR NOVO CONTEÚDO SEM PARTIR NADA
+------------------------------------------------------------------
+NOVO PROJETO (em pages/projectos.html):
+  1. Criar a pasta imagens/project/proj-22/ com as fotos (capa +
+     galeria, os nomes não importam).
+  2. Copiar um <article class="project-card">...</article>
+     inteiro (com o comentário "INSERIR IMAGEM DO PROJETO AQUI" por
+     cima) e colar antes do fecho da grelha de projetos. Mudar o
+     texto, a categoria e o "proj-XX" para "proj-22".
+  3. Copiar também o <div id="modal-proj-XX">...</div> de detalhe
+     correspondente, mais abaixo no mesmo ficheiro, e ajustar da
+     mesma forma.
+  4. Em js/projectos.js, acrescentar 'proj-22' aos dois objetos de
+     configuração (PROJ_GALLERY_IMAGES e PROJ_COVER_IMAGES) — os
+     comentários no próprio ficheiro explicam o formato.
+  5. Se o texto novo precisar de chaves de tradução, seguir a
+     secção 6.
+
+NOVA PÁGINA / SECÇÃO / LOCAL: ver secção 4.
+
+NOVO ITEM DE MENU: acrescentar o <a> no <nav> do cabeçalho e no
+menu móvel, em TODAS as páginas (index.html + pages/*.html) — não
+há um ficheiro central de menu.
+
+Regra geral: copiar sempre um bloco existente parecido (não criar
+de raiz), mudar só o texto/imagem/link, e manter as classes CSS
+tal como estão — isso garante que o visual e o comportamento
+(SPA, idiomas, animações) continuam a funcionar sem mais alterações.
+
+
+------------------------------------------------------------------
+10. BOAS PRÁTICAS AO EDITAR
+------------------------------------------------------------------
+- Nunca apagar os atributos data-i18n, data-i18n-attr, data-persist,
+  data-slide, data-cover-key ou data-modal-target — são usados pelo
+  JavaScript para encontrar os elementos certos.
+- Depois de editar um ficheiro .html, verificar se ainda abre bem
+  num browser (tags por fechar partem a página toda).
+- Depois de editar um ficheiro .css, confirmar que o número de "{"
+  é igual ao de "}".
+- Depois de editar um ficheiro .js, correr "node -c ficheiro.js" (se
+  tiver Node.js instalado) para confirmar que não há erros de sintaxe.
+- Ao editar as traduções, manter sempre as mesmas chaves nos 3
+  ficheiros (pt.json, en.json, es.json) — chaves em falta num deles
+  fazem o site mostrar texto em falta ou trocado nesse idioma.

@@ -1,0 +1,9 @@
+# robots.txt — FiberTech
+# Ambiente actual de testes: fibertech.onrender.com
+# Quando o site migrar para fibertech.co.mz, so e preciso actualizar
+# a linha "Sitemap:" abaixo (e o dominio dentro do sitemap.xml).
+
+User-agent: *
+Allow: /
+
+Sitemap: https://fibertech.onrender.com/sitemap.xml
